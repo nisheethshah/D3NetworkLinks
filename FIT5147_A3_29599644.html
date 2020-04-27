@@ -1,0 +1,225 @@
+<html>
+    <head>
+        <title>Assignment 3: D3</title>
+<!--        <link rel="stylesheet" href="task3.css">-->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js">
+        </script>
+<!--        <meta charset="UTF-8">-->
+    </head>
+    <style>
+		
+/*		Design the tooltip when mouse on the circle*/
+        div.tooltip {	
+            width: 315px;					
+            height: 65px;
+			padding: 2px;		
+            border: 4px;		
+            border-radius: 7px;
+			pointer-events: none;
+			background: lightgrey;	
+            position: absolute;			
+            text-align: left;				
+            font: 18px sans-serif;			
+        }
+
+    </style>
+    <body>
+		<h1>
+			Trade between each site
+		</h1>
+		<br/>
+	</body>
+    <script>
+
+//      Create SVG element
+        var svg = d3.select("body").append("svg")
+        	.attr("width", 1000)
+        	.attr("height", 550)
+			.attr("border",1);
+		
+//		Add border
+		svg.append("rect")
+       			.attr("x", 0)
+       			.attr("y", 0)
+       			.attr("height", 550)
+       			.attr("width", 1000)
+       			.style("stroke", 'black')
+       			.style("fill", "none")
+       			.style("stroke-width", 2);
+        
+//		Function to get total amount of each site for circle
+		function render_data(json_data){
+            var circles = svg.selectAll("circle").data(json_data['nodes'])
+            circles.enter().append("circle")
+                .attr("r", function(d){
+                
+//				Find the total amount of each site
+				var site_total_amount = 0
+                json_data['links'].forEach(function(linkdata){
+                    if(d['id']==linkdata['node01'] |d['id']==linkdata['node02'] ){
+                        site_total_amount = site_total_amount + linkdata['amount']
+                    }
+                })
+                return (site_total_amount * 100) / total_amount
+            })
+                .attr("cx", function(d, i){return d.x;})
+                .attr("cy", function(d, i){return d.y;})
+                .attr("fill", "royalblue")
+                .on("mouseover", mouse_hover)
+                .on("mouseout", mouse_hover_out);
+        };
+
+        // creating lines
+        function render_lines(json_data){
+            var lines = svg.selectAll("line").data(json_data['links'])
+            lines.enter().append("line")
+                .attr("x1", function(d){
+                
+					tempvar = 0
+					json_data['nodes'].forEach(function(each_node){
+						if(d['node01']==each_node['id']){
+							tempvar = each_node['x']
+						}
+					})
+					return tempvar
+            	})
+                .attr("x2", function(d){
+
+					tempvar = 0
+					json_data['nodes'].forEach(function(each_node){
+						if(d['node02']==each_node['id']){
+							tempvar = each_node['x']
+						}
+					})
+					return tempvar
+
+				})
+				.attr("y1", function(d){
+				
+					tempvar = 0
+					json_data['nodes'].forEach(function(each_node){
+						if(d['node01']==each_node['id']){
+							tempvar = each_node['y']
+						}
+					})
+					return tempvar
+
+				})
+				.attr("y2", function(d){
+					
+					tempvar = 0
+					json_data['nodes'].forEach(function(each_node){
+						if(d['node02']==each_node['id']){
+							tempvar = each_node['y']
+						}
+					})
+					return tempvar
+
+				})
+					.attr("stroke", "royalblue")
+					.attr("stroke-width", function(d){
+					return (d['amount'] * 100) / total_amount
+				})
+        };
+
+//		Function to get the amount by name
+        function render2(datalinks){
+            datalinks.amount = +datalinks.amount;
+            window.amount_name = d3.nest()
+                .key(function(d) { return d.node02; })
+                .rollup(function(v) { return d3.mean(v, function(d) { return d.amount; }); })
+                .entries(datalinks);
+            return amount_name
+        }
+
+        // Define the div for the tooltip
+        var div = d3.select("body").append("div")	
+        .attr("class", "tooltip")				
+        .style("opacity", 0);
+
+        //Mouse hover
+        function mouse_hover(d, i) { 
+			
+            div.transition()
+                .duration(200)
+                .style("opacity", .9);
+            window.site_total_amount = 0
+            window.sitecount = 0
+			
+//			Get total number of trade amount and locations connected
+            json_data['links'].forEach(function(linkdata){
+                if(d['id']==linkdata['node01'] | d['id']==linkdata['node02'] ){
+                    window.site_total_amount = site_total_amount + linkdata['amount']
+                    window.sitecount = window.sitecount + 1
+                }
+            })
+            
+//			Text to display in the tooltip
+			div	.html(("Site name: " + d['id']) + "<br/>" +"Total trade: " + site_total_amount + "<br/>"+ "Total number of locations connected: " +sitecount)	
+                .style("left", (d3.event.x + 10) + "px")		
+                .style("top", (d3.event.y - 10) + "px");	
+
+//      	Make circle & line transparent when mouse hover the circle			
+			svg.selectAll("circle")
+                .attr("opacity", 0.2);
+			svg.selectAll("line")
+                .attr("opacity", 0.2);
+            d3.select(this) 
+                .attr("opacity", 1);
+			
+			var cx = this.getAttribute('cx');
+			var cy = this.getAttribute('cy');
+			
+			var i = 0;
+			for (i = 0; i < json_data['links'].length; i++) {
+				svg.selectAll("line").forEach(function(linkdata){					
+					if (
+						((cx==linkdata[i].getAttribute('x1')) && (cy==linkdata[i].getAttribute('y1'))) 
+							|| ((cx==linkdata[i].getAttribute('x2')) && (cy==linkdata[i].getAttribute('y2')))
+					) {
+						d3.select(linkdata[i])
+							.attr("opacity", 1);
+					}
+				})
+			}
+        };
+		
+//		Handling circle & line opacity when mouse not hovering the circle
+        function mouse_hover_out(d) {
+            div.transition()		
+                .duration(500)		
+                .style("opacity", 0);	    
+            svg.selectAll("circle") 
+                .attr("opacity", 1);
+			svg.selectAll("line") 
+                .attr("opacity", 1);
+        };
+
+//		Read the data file
+		d3.json("data-02.json", function(json_data){
+            window.json_data = json_data 
+
+//          Fetch the minimum and mximum amount from the data
+			var min_amount = 0;
+            var max_amount = 0;
+            json_data.links.forEach(function(each_link){
+//                var amt = each_link["amount"];
+                min_amount = Math.min(min_amount, each_link["amount"]);
+                max_amount = Math.max(max_amount, each_link["amount"]);
+            });
+			
+//			Get total number of amount 
+			window.total_amount = 0
+            json_data['links'].forEach(function(linkdata){
+                total_amount = total_amount + linkdata['amount']
+            })
+			
+//			Render all sites data and links data
+            render2(json_data.links);
+            render_data(json_data);
+            render_lines(json_data);
+        });	
+	
+	</script>
+</html>
+
